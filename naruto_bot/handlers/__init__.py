@@ -4,7 +4,7 @@
 # Import all handlers to make them accessible
 from .core_handlers import register_core_handlers
 from .activity_handlers import register_activity_handlers
-from .jutsus_handlers import register_jutsu_handlers # RENAME FIX HERE!
+from .jutsus_handlers import register_jutsu_handlers # CORRECTED NAME
 from .battle_handlers import register_battle_handlers
 
 def register_all_handlers(application):
