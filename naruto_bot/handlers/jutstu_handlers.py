@@ -3,10 +3,10 @@ import json
 import sqlite3
 import asyncio
 from datetime import datetime, timezone
+from typing import Optional, List, Any
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.constants import ParseMode
-# Correctly import async get_player
 from ..models import get_player, Player
 from ..game_data import JUTSU_LIBRARY, HAND_SIGNS
 from ..services import validate_hand_signs, get_jutsu_by_signs
@@ -20,6 +20,7 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not user_id: return
     logger.debug(f"Received /jutsus command from {user_id}")
+    
     # --- FIX: Added await ---
     player = await get_player(user_id)
     if not player:
@@ -35,14 +36,12 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for jutsu_key in player.known_jutsus:
         jutsu = JUTSU_LIBRARY.get(jutsu_key)
         if jutsu and isinstance(jutsu, dict):
-            # Check essential keys for display
             name = jutsu.get('name', jutsu_key)
             element = jutsu.get('element', 'Unknown').capitalize()
             power = jutsu.get('power', '?')
             cost = jutsu.get('chakra_cost', '?')
-            signs = jutsu.get('signs', []) # Default to empty list
+            signs = jutsu.get('signs', [])
 
-            # Ensure signs is iterable for join
             signs_str = ' '.join(signs) if isinstance(signs, (list, tuple)) else 'Error'
 
             message += (
@@ -73,7 +72,7 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id: return
     logger.debug(f"Received /combine command from {user_id} with args: {context.args}")
     # --- FIX: Added await ---
-    player = await get_player(user_id)
+    player = await get_player(user.id)
     if not player:
         await update.message.reply_text("You must /start your journey first.")
         return
@@ -90,7 +89,7 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     signs = [sign.lower() for sign in context.args]
 
     # Validate signs
-    if not validate_hand_signs(signs): # Assumes validate_hand_signs checks against HAND_SIGNS
+    if not validate_hand_signs(signs):
         invalid_signs = [s for s in signs if s not in HAND_SIGNS]
         await update.message.reply_text(
             f"Invalid hand sign(s) detected: `{', '.join(invalid_signs)}`.\n"
@@ -101,7 +100,7 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check if this combination yields a known jutsu
     combo_str = ' '.join(signs)
-    jutsu_match = get_jutsu_by_signs(signs) # Assumes this returns (key, data_dict) or (None, None)
+    jutsu_match = get_jutsu_by_signs(signs)
 
     if not jutsu_match:
         await update.message.reply_text(
@@ -137,9 +136,8 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"You recognize this sequence: `{combo_str}`.\n"
             f"It forms the **{jutsu_data['name']}** jutsu."
         )
-        # Ensure the actual jutsu is learned (in case of data mismatch)
-        if player.add_jutsu(jutsu_key): # add_jutsu handles marking modified
-            player.save() # Save if jutsu was added
+        if player.add_jutsu(jutsu_key):
+            player.save()
         logger.debug(f"Player {user_id} tried already discovered combination '{combo_str}'.")
         return
 
@@ -148,42 +146,37 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Add to player's lists and save
     player.add_discovered_combination(combo_str)
-    player.add_jutsu(jutsu_key) # These methods handle mark_modified
-    player.save() # Save the changes
+    player.add_jutsu(jutsu_key)
+    player.save()
 
     # Log discovery globally (synchronous)
     _log_jutsu_discovery(combo_str, jutsu_key, player)
 
     # Play discovery animation
-    message = None # Define message before try block
+    message = None
     try:
-        # Send initial message first
         message = await update.message.reply_text("You weave together an unfamiliar sequence of hand signs...")
 
-        # Prepare data for animation
         anim_data = jutsu_data.copy()
-        anim_data['signs'] = signs # Display the signs player used
-        anim_data['name'] = jutsu_data['name'] # Ensure name is present
+        anim_data['signs'] = signs
+        anim_data['name'] = jutsu_data['name']
 
-        # Call the async animation function
         await animate_jutsu_discovery(message, player.username, anim_data)
 
     except Exception as e:
-        logger.error(f"Jutsu discovery animation failed for {user_id}: {e}", exc_info=True)
-        # Fallback message
+        logger.error(f"Jutsu discovery animation failed for {user.id}: {e}", exc_info=True)
         fallback_text = (
             f"🌟 **NEW JUTSU DISCOVERED!**\n"
             f"Through experimentation, you have learned **{jutsu_data.get('name', jutsu_key)}**!"
         )
         try:
-            if message: # Try editing the placeholder message
+            if message:
                  await message.edit_text(fallback_text, parse_mode=ParseMode.MARKDOWN)
-            else: # If sending placeholder failed, send as new message
+            else:
                  await update.message.reply_text(fallback_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as fallback_e:
-             logger.error(f"Failed to send fallback discovery message for {user_id}: {fallback_e}")
-             # Final fallback if edit/reply fails
-             await context.bot.send_message(user_id, fallback_text, parse_mode=ParseMode.MARKDOWN)
+             logger.error(f"Failed to send fallback discovery message for {user.id}: {fallback_e}")
+             await context.bot.send_message(user.id, fallback_text, parse_mode=ParseMode.MARKDOWN)
 
 
 def _log_jutsu_discovery(combo_str: str, jutsu_key: str, player: Player):
@@ -201,8 +194,6 @@ def _log_jutsu_discovery(combo_str: str, jutsu_key: str, player: Player):
             conn.commit()
             if cursor.rowcount > 0:
                  logger.info(f"New jutsu discovery logged to DB: {player.username} found {jutsu_key} via '{combo_str}'")
-            # else: logger.debug(f"Discovery log skipped for '{combo_str}' (already exists).") # Optional debug
-
     except sqlite3.Error as e:
         logger.error(f"Failed to log jutsu discovery to DB: {e}", exc_info=True)
     except Exception as e:
