@@ -1,2 +1,1 @@
-requirements.txt
-python-telegram-bot==20.7redis==4.5.5apscheduler==3.10.1python-dotenv==1.0.0sqlite3 is built-in
+python-telegram-bot==20.7redis==4.5.5apscheduler==3.10.1python-dotenv==1.0.0
