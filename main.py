@@ -1,0 +1,95 @@
+import logging
+import asyncio
+from telegram.ext import Application
+from telegram.constants import ParseMode
+
+# --- Local Imports ---
+from naruto_bot.config import config
+from naruto_bot.database import init_database
+from naruto_bot.cache import cache_manager, test_redis_connection
+from naruto_bot.scheduler import setup_scheduler
+from naruto_bot.handlers import register_all_handlers
+
+# --- Logging Setup ---
+# Set up basic logging
+logging.basicConfig(
+    level=logging.DEBUG if config.DEBUG else logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(), # Log to console
+        logging.FileHandler("naruto_bot.log") # Log to file
+    ]
+)
+# Suppress overly verbose logs from httpcore and httpx
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+async def main():
+    """Main function to set up and run the bot."""
+    
+    logger.info("--- Starting Naruto RPG Bot ---")
+
+    # --- 1. Test Connections ---
+    logger.info(f"Database path set to: {config.DATABASE_PATH}")
+    
+    # Test Redis connection
+    if not await test_redis_connection():
+        logger.critical("Failed to connect to Redis. Please check your REDIS_URL.")
+        return
+    logger.info(f"Successfully connected to Redis at {config.REDIS_URL}")
+    
+    # --- 2. Initialize Database ---
+    try:
+        init_database()
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.critical(f"Failed to initialize database: {e}")
+        return
+
+    # --- 3. Create Bot Application ---
+    if not config.BOT_TOKEN:
+        logger.critical("BOT_TOKEN is not set. Exiting.")
+        return
+        
+    # Set default parse mode for all messages
+    defaults = {"parse_mode": ParseMode.MARKDOWN}
+    
+    application = (
+        Application.builder()
+        .token(config.BOT_TOKEN)
+        .defaults(defaults)
+        .build()
+    )
+
+    # --- 4. Register All Handlers ---
+    register_all_handlers(application)
+    logger.info("All command and message handlers registered.")
+
+    # --- 5. Start Scheduler ---
+    setup_scheduler()
+    logger.info("Background scheduler started.")
+
+    # --- 6. Run the Bot ---
+    logger.info("Bot is starting to poll...")
+    try:
+        # Run the bot
+        await application.run_polling()
+    except Exception as e:
+        logger.critical(f"Bot polling failed: {e}")
+    finally:
+        # Graceful shutdown
+        logger.info("Shutting down bot...")
+        await application.shutdown()
+        cache_manager.close()
+        logger.info("Bot has been shut down.")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot shutdown requested (KeyboardInterrupt).")
+    except Exception as e:
+        logger.critical(f"Unhandled exception in main: {e}")
