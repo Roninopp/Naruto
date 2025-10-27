@@ -89,38 +89,3 @@ def init_database():
     except Exception as e:
         logger.critical(f"A critical error occurred setting up the database: {e}")
         raise
-```
-
----
-
-### Final Steps to Run (Again)
-
-1.  **Commit to GitHub:** Ensure the code above is in your local `naruto_bot/database.py` file. Then commit and push to GitHub.
-    ```bash
-    git add naruto_bot/database.py
-    git commit -m "Ensure database.py has the correct init_database function"
-    git push origin main
-    ```
-2.  **Clean Redeploy on VPS:**
-    ```bash
-    # Stop any running bot first!
-    pkill -f 'python main.py'
-    cd ~
-    rm -rf Naruto
-    git clone https://github.com/Roninopp/Naruto
-    cd Naruto
-    
-    # Re-create .env and venv
-    echo '# .env file' > .env
-    echo 'BOT_TOKEN=7473579334:AAHzx7x0qTTV0ak-HzCiMFTN0fotqS91qMw' >> .env
-    echo 'ADMIN_IDS=6837532865' >> .env
-    echo 'REDIS_URL=redis://localhost:6379' >> .env
-    echo 'DATABASE_PATH=naruto_bot.db' >> .env
-    echo 'DEBUG=False' >> .env
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    
-    # RUN THE BOT
-    python main.py
-    
