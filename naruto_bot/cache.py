@@ -1,98 +1,118 @@
-# naruto_bot/cache.py
-import redis
+import redis.asyncio as redis
 import pickle
 import logging
+import asyncio
 from .config import config
 
 logger = logging.getLogger(__name__)
 
 class CacheManager:
     """
-    Manages the Redis cache for player data, battle states, and rate limiting.
+    Manages the connection and operations with the Redis cache.
+    Uses asyncio for non-blocking operations.
     """
-    def __init__(self):
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        """Implements the Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(CacheManager, cls).__new__(cls)
+            cls._instance.redis_client = None
+        return cls._instance
+
+    async def initialize(self):
+        """Initializes the asynchronous Redis connection pool."""
+        if self.redis_client is None:
+            try:
+                logger.info(f"Connecting to Redis at {config.REDIS_URL}...")
+                self.redis_client = redis.from_url(
+                    config.REDIS_URL,
+                    decode_responses=False
+                )
+                await self.redis_client.ping()
+                logger.info("Redis connection successful.")
+            except Exception as e:
+                logger.critical(f"Failed to initialize Redis connection: {e}")
+                self.redis_client = None
+                raise
+
+    async def _get_client(self):
+        """Ensures the client is initialized before use."""
+        if self.redis_client is None:
+            await self.initialize()
+        if self.redis_client is None:
+            raise ConnectionError("Redis client is not initialized.")
+        return self.redis_client
+
+    def _get_key(self, prefix: str, key: str) -> str:
+        """Generates a namespaced key (e.g., 'naruto_bot:players:12345')."""
+        return f"naruto_bot:{prefix}:{key}"
+
+    async def set_data(self, prefix: str, key: str, value: any, ttl: int = None):
+        """Serializes (pickles) and caches data."""
+        client = await self._get_client()
+        full_key = self._get_key(prefix, str(key))
+        serialized_value = pickle.dumps(value)
         try:
-            # Using decode_responses=False to store pickled objects
-            self.redis = redis.StrictRedis(
-                host=config.REDIS_HOST,
-                port=config.REDIS_PORT,
-                db=0,
-                decode_responses=False
-            )
-            self.redis.ping()
-            logger.info(f"Successfully connected to Redis at {config.REDIS_HOST}:{config.REDIS_PORT}")
-        except redis.exceptions.ConnectionError as e:
-            logger.critical(f"Failed to connect to Redis: {e}. Caching will be disabled.")
-            self.redis = None
+            await client.set(full_key, serialized_value, ex=ttl)
+        except Exception as e:
+            logger.error(f"Failed to set cache for key {full_key}: {e}")
 
-    def _get_key(self, key_type: str, key_id: any) -> str:
-        """Helper to create standardized cache keys."""
-        return f"naruto_bot:{key_type}:{key_id}"
-
-    def set_data(self, key_type: str, key_id: any, data: any, ttl: int = None):
-        """
-        Serializes and stores data (like a Player object) in the cache.
-        """
-        if not self.redis:
-            return
-        
-        key = self._get_key(key_type, key_id)
+    async def get_data(self, prefix: str, key: str) -> any:
+        """Retrieves and deserializes (unpickles) data from cache."""
+        client = await self._get_client()
+        full_key = self._get_key(prefix, str(key))
         try:
-            serialized_data = pickle.dumps(data)
-            self.redis.set(key, serialized_data, ex=ttl)
-            logger.debug(f"Cached data for key: {key}")
-        except (pickle.PickleError, redis.exceptions.RedisError) as e:
-            logger.error(f"Failed to cache data for key {key}: {e}")
+            serialized_value = await client.get(full_key)
+            if serialized_value:
+                return pickle.loads(serialized_value)
+        except Exception as e:
+            logger.error(f"Failed to get cache for key {full_key}: {e}")
+        return None
 
-    def get_data(self, key_type: str, key_id: any) -> any:
-        """
-        Retrieves and deserializes data from the cache.
-        """
-        if not self.redis:
-            return None
-            
-        key = self._get_key(key_type, key_id)
+    async def delete_data(self, prefix: str, key: str):
+        """Deletes data from cache by key."""
+        client = await self._get_client()
+        full_key = self._get_key(prefix, str(key))
         try:
-            serialized_data = self.redis.get(key)
-            if serialized_data:
-                logger.debug(f"Cache hit for key: {key}")
-                return pickle.loads(serialized_data)
-            else:
-                logger.debug(f"Cache miss for key: {key}")
-                return None
-        except (pickle.PickleError, redis.exceptions.RedisError) as e:
-            logger.error(f"Failed to retrieve/deserialize data for key {key}: {e}")
-            return None
-    
-    def delete_data(self, key_type: str, key_id: any):
-        """Deletes data from the cache."""
-        if not self.redis:
-            return
-            
-        key = self._get_key(key_type, key_id)
-        try:
-            self.redis.delete(key)
-            logger.debug(f"Deleted cache for key: {key}")
-        except redis.exceptions.RedisError as e:
-            logger.error(f"Failed to delete cache for key {key}: {e}")
+            await client.delete(full_key)
+        except Exception as e:
+            logger.error(f"Failed to delete cache for key {full_key}: {e}")
 
-    # --- Battle/State Management ---
+    async def close(self):
+        """Closes the Redis connection pool."""
+        if self.redis_client:
+            await self.redis_client.aclose()
+            self.redis_client = None
+            logger.info("Redis connection closed.")
 
-    def is_in_battle(self, user_id: int) -> bool:
-        """Checks if a user is currently in a battle."""
-        return self.get_data("battle_lock", user_id) is not None
+    # --- Battle Specific Helpers ---
 
-    def set_battle_lock(self, user_id: int, opponent_id: int):
-        """Locks a user into a battle state."""
-        self.set_data("battle_lock", user_id, opponent_id, ttl=config.BATTLE_TIMEOUT_SECONDS)
+    async def set_battle_lock(self, user_id: int, opponent_id: int):
+        """Locks a user into a battle (Prompt 18)."""
+        await self.set_data("battle_lock", str(user_id), opponent_id, ttl=config.BATTLE_CACHE_TTL)
 
-    def remove_battle_lock(self, user_id: int):
-        """Removes a user's battle lock."""
-        self.delete_data("battle_lock", user_id)
+    async def is_in_battle(self, user_id: int) -> bool:
+        """Checks if a user is in a battle."""
+        return await self.get_data("battle_lock", str(user_id)) is not None
 
-    def get_battle_opponent(self, user_id: int) -> int | None:
-        """Gets the ID of the user's battle opponent."""
-        return self.get_data("battle_lock", user_id)
+    async def get_battle_opponent(self, user_id: int) -> int | None:
+        """Gets the ID of the user's opponent."""
+        return await self.get_data("battle_lock", str(user_id))
 
-# Create a single cache manager instance to be imported by other files
+# --- Global Instance ---
 cache_manager = CacheManager()
+
+# --- Standalone Test Function (main.py is looking for this) ---
+async def test_redis_connection() -> bool:
+    """
+    A standalone function to test the Redis connection on startup.
+    """
+    try:
+        client = redis.from_url(config.REDIS_URL)
+        await client.ping()
+        await client.aclose()
+        return True
+    except Exception as e:
+        logger.error(f"Redis connection test failed: {e}")
+        return False
