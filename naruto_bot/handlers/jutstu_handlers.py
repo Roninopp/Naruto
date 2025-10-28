@@ -1,4 +1,4 @@
-# naruto_bot/handlers/jutsu_handlers.py  (RENAMED from jutstu_handlers.py)
+# naruto_bot/handlers/jutsu_handlers.py
 import logging
 import json
 import sqlite3
@@ -16,10 +16,12 @@ from ..animations import animate_jutsu_discovery
 
 logger = logging.getLogger(__name__)
 
+
 async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /jutsus command, listing known jutsus."""
     user_id = update.effective_user.id
-    if not user_id: return
+    if not user_id: 
+        return
     logger.debug(f"Received /jutsus command from {user_id}")
     
     player = await get_player(user_id)
@@ -47,7 +49,7 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += (
                 f"**{name}** [{element}]\n"
                 f"  (Power: {power}, Cost: {cost})\n"
-                f"  Signs: `{signs_str}`\n"
+                f"  Signs: `{signs_str}`\n\n"
             )
             found_any_valid = True
         else:
@@ -66,11 +68,12 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /combine command for jutsu discovery."""
-    user_id = update.effective_user.id  # FIX: Changed from user.id
-    if not user_id: return
+    user_id = update.effective_user.id
+    if not user_id: 
+        return
     logger.debug(f"Received /combine command from {user_id} with args: {context.args}")
     
-    player = await get_player(user_id)  # FIX: Changed from user.id
+    player = await get_player(user_id)
     if not player:
         await update.message.reply_text("You must /start your journey first.")
         return
@@ -164,7 +167,7 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await animate_jutsu_discovery(message, player.username, anim_data)
 
     except Exception as e:
-        logger.error(f"Jutsu discovery animation failed for {user_id}: {e}", exc_info=True)  # FIX: Changed from user.id
+        logger.error(f"Jutsu discovery animation failed for {user_id}: {e}", exc_info=True)
         fallback_text = (
             f"🌟 **NEW JUTSU DISCOVERED!**\n"
             f"Through experimentation, you have learned **{jutsu_data.get('name', jutsu_key)}**!"
@@ -175,8 +178,8 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                  await update.message.reply_text(fallback_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as fallback_e:
-             logger.error(f"Failed to send fallback discovery message for {user_id}: {fallback_e}")  # FIX: Changed from user.id
-             await context.bot.send_message(user_id, fallback_text, parse_mode=ParseMode.MARKDOWN)  # FIX: Changed from user.id
+             logger.error(f"Failed to send fallback discovery message for {user_id}: {fallback_e}")
+             await context.bot.send_message(user_id, fallback_text, parse_mode=ParseMode.MARKDOWN)
 
 
 def _log_jutsu_discovery(combo_str: str, jutsu_key: str, player: Player):
