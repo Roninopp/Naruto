@@ -322,7 +322,7 @@ class Player:
             self.username, self.village, self.level, self.exp, self.total_exp,
             self.max_hp, self.current_hp, self.max_chakra, self.current_chakra,
             self.chakra_regen_rate, self.strength, self.speed, self.intelligence, self.stamina,
-            json.dumps(self.known_jJutsus or []),
+            json.dumps(self.known_jutsus or []),
             json.dumps(self.discovered_combinations or []),
             json.dumps(self.equipment or {}),
             self.ryo, self.rank, self.wins, self.losses,
