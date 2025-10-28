@@ -1,3 +1,4 @@
+# naruto_bot/cache.py
 import redis.asyncio as redis
 import pickle
 import logging
@@ -45,7 +46,7 @@ class CacheManager:
         return self.redis_client
 
     def _get_key(self, prefix: str, key: str) -> str:
-        """Generates a namespaced key (e.g., 'naruto_bot:players:12345')."""
+        """Generates a namespaced key."""
         return f"naruto_bot:{prefix}:{key}"
 
     async def set_data(self, prefix: str, key: str, value: any, ttl: int = None):
@@ -89,7 +90,7 @@ class CacheManager:
     # --- Battle Specific Helpers ---
 
     async def set_battle_lock(self, user_id: int, opponent_id: int):
-        """Locks a user into a battle (Prompt 18)."""
+        """Locks a user into a battle."""
         await self.set_data("battle_lock", str(user_id), opponent_id, ttl=config.BATTLE_CACHE_TTL)
 
     async def is_in_battle(self, user_id: int) -> bool:
@@ -103,11 +104,9 @@ class CacheManager:
 # --- Global Instance ---
 cache_manager = CacheManager()
 
-# --- Standalone Test Function (main.py is looking for this) ---
+# --- Standalone Test Function ---
 async def test_redis_connection() -> bool:
-    """
-    A standalone function to test the Redis connection on startup.
-    """
+    """A standalone function to test the Redis connection on startup."""
     try:
         client = redis.from_url(config.REDIS_URL)
         await client.ping()
