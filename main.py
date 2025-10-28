@@ -1,4 +1,4 @@
-# main.py (Simplified - Loop Management Test)
+# main.py (Simplified - Loop Management Test - Corrected)
 import logging
 import asyncio
 from telegram.ext import Application
@@ -47,7 +47,8 @@ async def main():
         # Graceful shutdown
         logger.info("Shutting down bot (in finally block)...")
         # Ensure shutdown is awaited if run_polling raises exception early
-        if application.is_initialized:
+        # FIX: Use _initialized (with underscore)
+        if hasattr(application, '_initialized') and application._initialized:
             await application.shutdown()
         logger.info("Bot shutdown process complete.")
 
