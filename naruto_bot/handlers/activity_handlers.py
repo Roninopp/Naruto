@@ -183,7 +183,7 @@ async def _mission_completion_job(context: ContextTypes.DEFAULT_TYPE):
               logger.warning(f"Clearing potentially related mission status '{player.current_mission}' for player {user_id}")
               player.current_mission = None
               player.mark_modified()
-             player.save()
+              player.save() # <-- THIS LINE WAS FIXED
          return
 
     if player.current_mission != mission['name']:
