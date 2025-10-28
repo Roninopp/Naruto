@@ -8,7 +8,7 @@ from telegram.constants import ParseMode
 from naruto_bot.config import config
 from naruto_bot.database import init_database
 from naruto_bot.cache import cache_manager, test_redis_connection
-from naruto_bot.scheduler import setup_scheduler
+# from naruto_bot.scheduler import setup_scheduler  # <-- FIX: Disabled to prevent loop conflict
 from naruto_bot.handlers import register_all_handlers
 
 # --- Logging Setup ---
@@ -67,8 +67,11 @@ async def main():
     logger.info("All command and message handlers registered.")
 
     # --- 5. Start Scheduler ---
-    setup_scheduler()
-    logger.info("Background scheduler started.")
+    # setup_scheduler()  # <-- FIX: Disabled to prevent loop conflict
+    # logger.info("Background scheduler started.") # <-- FIX: Disabled
+    
+    # NOTE: The bot's built-in job_queue (used for missions/training) 
+    # will still work. This fix only disables the separate 'apscheduler'.
 
     # --- 6. Run the Bot ---
     logger.info("Bot is starting to poll...")
@@ -80,7 +83,7 @@ async def main():
         # Graceful shutdown
         logger.info("Shutting down bot...")
         await application.shutdown()
-        await cache_manager.close()  # FIX: Added await
+        await cache_manager.close()
         logger.info("Bot has been shut down.")
 
 if __name__ == "__main__":
