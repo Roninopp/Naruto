@@ -1,13 +1,42 @@
 # naruto_bot/game_data.py
-# Holds all static game data as defined in the prompts.
 
 # Prompt 3: Villages
 VILLAGES = {
-    'konoha': {'name': 'Konoha (Leaf)', 'element_bonus': 'fire', 'bonus_percent': 0.15},
-    'suna': {'name': 'Suna (Sand)', 'element_bonus': 'wind', 'bonus_percent': 0.15},
-    'kiri': {'name': 'Kiri (Mist)', 'element_bonus': 'water', 'bonus_percent': 0.15},
-    'kumo': {'name': 'Kumo (Cloud)', 'element_bonus': 'lightning', 'bonus_percent': 0.15},
-    'iwa': {'name': 'Iwa (Stone)', 'element_bonus': 'earth', 'bonus_percent': 0.15},
+    'konoha': {
+        'name': 'Konoha (Leaf)', 
+        'element_bonus': 'fire', 
+        'bonus_percent': 0.15,
+        'icon': '🍃',
+        'bonus_text': 'Fire jutsu deal +15% damage'
+    },
+    'suna': {
+        'name': 'Suna (Sand)', 
+        'element_bonus': 'wind', 
+        'bonus_percent': 0.15,
+        'icon': '⏳',
+        'bonus_text': 'Wind jutsu deal +15% damage'
+    },
+    'kiri': {
+        'name': 'Kiri (Mist)', 
+        'element_bonus': 'water', 
+        'bonus_percent': 0.15,
+        'icon': '🌊',
+        'bonus_text': 'Water jutsu deal +15% damage'
+    },
+    'kumo': {
+        'name': 'Kumo (Cloud)', 
+        'element_bonus': 'lightning', 
+        'bonus_percent': 0.15,
+        'icon': '⚡',
+        'bonus_text': 'Lightning jutsu deal +15% damage'
+    },
+    'iwa': {
+        'name': 'Iwa (Stone)', 
+        'element_bonus': 'earth', 
+        'bonus_percent': 0.15,
+        'icon': '🪨',
+        'bonus_text': 'Earth jutsu deal +15% damage'
+    },
 }
 
 # Prompt 4: Ranks & Levels
@@ -19,17 +48,16 @@ RANKS = [
     'Kage'
 ]
 
-# Level required for each rank-up
 RANK_UP_LEVELS = {
     'Academy Student': 10,
     'Genin': 25,
     'Chunin': 40,
     'Jonin': 60,
-    'Kage': float('inf') # Max rank
+    'Kage': float('inf')
 }
 
 def get_exp_for_level(level: int) -> int:
-    """Calculates EXP needed for the next level (Prompt 4)."""
+    """Calculates EXP needed for the next level."""
     return level * 150
 
 STAT_GROWTH_PER_LEVEL = 6
@@ -47,9 +75,9 @@ ELEMENT_MATRIX = {
 # Prompt 9: Jutsu System
 HAND_SIGNS = ['tiger', 'snake', 'dog', 'bird', 'ram', 'boar', 'hare', 'rat', 'monkey', 'dragon']
 
-# This library is intentionally expanded to 30+ as requested in Phase 1 goals.
+# Jutsu Library (keeping your existing jutsus - no changes needed)
 JUTSU_LIBRARY = {
-    # --- FIRE JUTSUS (Konoha) ---
+    # --- FIRE JUTSUS ---
     'fireball': {
         'name': 'Fireball Jutsu',
         'signs': ['tiger', 'snake', 'bird'],
@@ -81,7 +109,7 @@ JUTSU_LIBRARY = {
         'power': 30, 'chakra_cost': 15, 'element': 'fire', 'level_required': 1, 'discovered': True
     },
 
-    # --- WATER JUTSUS (Kiri) ---
+    # --- WATER JUTSUS ---
     'water_dragon': {
         'name': 'Water Dragon Jutsu',
         'signs': ['tiger', 'dog', 'snake', 'bird'],
@@ -107,13 +135,13 @@ JUTSU_LIBRARY = {
         'signs': ['snake', 'ram', 'boar', 'dragon'],
         'power': 0, 'chakra_cost': 55, 'element': 'water', 'level_required': 24, 'discovered': False, 'effect': 'stun'
     },
-     'water_bullet': {
+    'water_bullet': {
         'name': 'Water Bullet',
         'signs': ['ram', 'dog'],
         'power': 30, 'chakra_cost': 15, 'element': 'water', 'level_required': 1, 'discovered': True
     },
 
-    # --- WIND JUTSUS (Suna) ---
+    # --- WIND JUTSUS ---
     'wind_scythe': {
         'name': 'Wind Scythe Jutsu',
         'signs': ['snake', 'bird', 'dragon'],
@@ -134,7 +162,7 @@ JUTSU_LIBRARY = {
         'signs': ['snake', 'ram', 'monkey'],
         'power': 60, 'chakra_cost': 35, 'element': 'wind', 'level_required': 16, 'discovered': False
     },
-     'air_bullet': {
+    'air_bullet': {
         'name': 'Air Bullet',
         'signs': ['bird', 'hare'],
         'power': 30, 'chakra_cost': 15, 'element': 'wind', 'level_required': 1, 'discovered': True
@@ -145,7 +173,7 @@ JUTSU_LIBRARY = {
         'power': 0, 'chakra_cost': 30, 'element': 'wind', 'level_required': 10, 'discovered': False, 'effect': 'accuracy_down'
     },
 
-    # --- LIGHTNING JUTSUS (Kumo) ---
+    # --- LIGHTNING JUTSUS ---
     'lightning_bolt': {
         'name': 'Lightning Bolt',
         'signs': ['boar', 'snake', 'tiger'],
@@ -177,7 +205,7 @@ JUTSU_LIBRARY = {
         'power': 0, 'chakra_cost': 50, 'element': 'lightning', 'level_required': 20, 'discovered': False, 'effect': 'defense_up'
     },
 
-    # --- EARTH JUTSUS (Iwa) ---
+    # --- EARTH JUTSUS ---
     'earth_wall': {
         'name': 'Earth Style Wall',
         'signs': ['tiger', 'hare', 'boar', 'dog'],
@@ -209,7 +237,7 @@ JUTSU_LIBRARY = {
         'power': 30, 'chakra_cost': 15, 'element': 'earth', 'level_required': 1, 'discovered': True
     },
 
-    # --- NON-ELEMENTAL / BASIC ---
+    # --- NON-ELEMENTAL ---
     'substitution': {
         'name': 'Substitution Jutsu',
         'signs': ['ram', 'boar', 'tiger'],
@@ -239,7 +267,7 @@ ELEMENT_ANIMATIONS = {
         "💧 **WATER STYLE!** 💧",
         "🌊 Waves forming! 🌊",
         "🌊💦 **TSUNAMI!** 💦🌊",
-        "💦 **SOAKING HIT!** 🏊"
+        "💦 **SOAKING HIT!** 🌊"
     ],
     'lightning': [
         "⚡ **LIGHTNING STYLE!** ⚡",
@@ -271,7 +299,7 @@ MISSIONS = {
     'D-Rank': {
         'name': 'Weed a Garden',
         'exp': 50, 'ryo': 100, 'level_req': 1,
-        'duration_sec': 60 * 5, # 5 minutes
+        'duration_sec': 60 * 5,
         'animation_frames': [
             "🪴 You begin weeding the client's garden...",
             "🌿 This is tedious work...",
@@ -282,7 +310,7 @@ MISSIONS = {
     'C-Rank': {
         'name': 'Escort a Client',
         'exp': 150, 'ryo': 300, 'level_req': 10,
-        'duration_sec': 60 * 15, # 15 minutes
+        'duration_sec': 60 * 15,
         'animation_frames': [
             "🛡️ You begin escorting the client...",
             "🌲 Traveling through the woods...",
@@ -293,7 +321,7 @@ MISSIONS = {
     'B-Rank': {
         'name': 'Investigate Ruins',
         'exp': 400, 'ryo': 800, 'level_req': 20,
-        'duration_sec': 60 * 30, # 30 minutes
+        'duration_sec': 60 * 30,
         'animation_frames': [
             "🔍 You arrive at the ancient ruins to investigate...",
             "📖 You find a strange scroll...",
@@ -303,39 +331,58 @@ MISSIONS = {
     }
 }
 
-# Prompt 15: Training
+# Prompt 15: Training (FIX: Added missing fields)
 TRAINING_ANIMATIONS = {
     'chakra_control': {
-        'duration_sec': 60 * 3, # 3 minutes
-        'stat': 'max_chakra',
-        'gain': 5,
+        'duration_sec': 60 * 3,
+        'stat': 'intelligence',  # FIX: Changed from 'max_chakra' to actual stat
+        'gain': 2,
+        'display_name': 'Chakra Control',
+        'description': 'Increase Intelligence (+Max Chakra)',
         'frames': [
             "🧘 Meditating...",
             "💫 Chakra flowing...", 
             "✨ Control improving!",
-            "🎯 **Training complete! Max Chakra +5!**"
+            "🎯 **Training complete! Intelligence +2!**"
         ]
     },
     'taijutsu': {
-        'duration_sec': 60 * 3, # 3 minutes
+        'duration_sec': 60 * 3,
         'stat': 'strength',
         'gain': 3,
+        'display_name': 'Taijutsu',
+        'description': 'Increase Strength',
         'frames': [
             "🥋 Practicing forms...",
             "💥 Sparring session!",
-            "⚡ Speed increasing!",
+            "⚡ Power increasing!",
             "🎯 **Training complete! Strength +3!**"
         ]
     },
     'stamina': {
-        'duration_sec': 60 * 3, # 3 minutes
+        'duration_sec': 60 * 3,
         'stat': 'stamina',
         'gain': 3,
+        'display_name': 'Stamina',
+        'description': 'Increase Stamina (+Max HP)',
         'frames': [
             "🏃 Running laps around the village...",
             "🥵 Pushing your limits...",
             "💪 Feeling stronger!",
             "🎯 **Training complete! Stamina +3!**"
+        ]
+    },
+    'speed': {
+        'duration_sec': 60 * 3,
+        'stat': 'speed',
+        'gain': 3,
+        'display_name': 'Speed',
+        'description': 'Increase Speed (Critical Hit chance)',
+        'frames': [
+            "🏃‍♂️ Sprint training begins...",
+            "💨 Moving faster and faster!",
+            "⚡ Lightning speed!",
+            "🎯 **Training complete! Speed +3!**"
         ]
     }
 }
