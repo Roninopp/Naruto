@@ -1,3 +1,4 @@
+# naruto_bot/handlers/activity_handlers.py
 import logging
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -15,9 +16,10 @@ logger = logging.getLogger(__name__)
 async def missions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Displays available missions."""
     user_id = update.effective_user.id
-    if not user_id: return
+    if not user_id: 
+        return
     logger.debug(f"Received /missions command from {user_id}")
-    # --- FIX: Added await ---
+    
     player = await get_player(user_id)
     if not player:
         await update.message.reply_text("You must /start your journey first.")
@@ -38,7 +40,7 @@ async def missions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if player.level >= details['level_req']:
             keyboard.append([
                 InlineKeyboardButton(
-                    f"{rank}: {details['name']} ({details['exp']} EXP, {details['ryo']} Ryo, {details['duration_sec']}s)",
+                    f"{rank}: {details['name']} ({details['exp']} EXP, {details['ryo']} Ryo)",
                     callback_data=f"mission_start_{rank}"
                 )
             ])
@@ -77,7 +79,8 @@ async def mission_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles starting a mission from the callback."""
     query = update.callback_query
     user_id = update.effective_user.id
-    if not query or not user_id: return
+    if not query or not user_id: 
+        return
     logger.debug(f"Received mission callback from {user_id}: {query.data}")
     await query.answer()
 
@@ -98,7 +101,6 @@ async def mission_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Invalid mission selected.")
         return
 
-    # --- FIX: Added await ---
     player = await get_player(user_id)
     if not player:
         await query.edit_message_text("Player data not found. Please /start again.")
@@ -168,7 +170,6 @@ async def _mission_completion_job(context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"Running mission completion job for user {user_id}, mission {mission_rank}.")
 
-    # --- FIX: Added await ---
     player = await get_player(user_id)
     mission = MISSIONS.get(mission_rank)
 
@@ -182,7 +183,7 @@ async def _mission_completion_job(context: ContextTypes.DEFAULT_TYPE):
               logger.warning(f"Clearing potentially related mission status '{player.current_mission}' for player {user_id}")
               player.current_mission = None
               player.mark_modified()
-              player.save()
+             player.save()
          return
 
     if player.current_mission != mission['name']:
@@ -213,7 +214,8 @@ async def _mission_completion_job(context: ContextTypes.DEFAULT_TYPE):
                     logger.warning(f"Failed to edit mission message {message_id} (frame): {edit_err}. Stopping animation.")
                     try:
                          await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=frames[-1], parse_mode=ParseMode.MARKDOWN)
-                    except: pass
+                    except: 
+                        pass
                     break
 
             final_frame = frames[-1] if frames else "Mission animation error."
@@ -264,9 +266,10 @@ async def _mission_completion_job(context: ContextTypes.DEFAULT_TYPE):
 async def train_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /train command."""
     user_id = update.effective_user.id
-    if not user_id: return
+    if not user_id: 
+        return
     logger.debug(f"Received /train command from {user_id} with args: {context.args}")
-    # --- FIX: Added await ---
+    
     player = await get_player(user_id)
     if not player:
         await update.message.reply_text("You must /start your journey first.")
@@ -350,7 +353,6 @@ async def _training_completion_job(context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"Running training completion job for user {user_id}, type {train_type}.")
 
-    # --- FIX: Added await ---
     player = await get_player(user_id)
     training = TRAINING_ANIMATIONS.get(train_type)
 
@@ -361,13 +363,17 @@ async def _training_completion_job(context: ContextTypes.DEFAULT_TYPE):
     if not training or not isinstance(training, dict):
         logger.error(f"Training type '{train_type}' not found or invalid in TRAINING_ANIMATIONS.")
         if player.current_mission and train_type in player.current_mission:
-             player.current_mission = None; player.mark_modified(); player.save()
+             player.current_mission = None
+             player.mark_modified()
+             player.save()
         return
 
     if not all(k in training for k in ['stat', 'gain', 'display_name']):
          logger.error(f"Training definition for '{train_type}' missing reward keys (stat/gain/display_name).")
          if player.current_mission and train_type in player.current_mission:
-              player.current_mission = None; player.mark_modified(); player.save()
+              player.current_mission = None
+              player.mark_modified()
+              player.save()
          return
 
     expected_status = f"Training {training.get('display_name', train_type.capitalize())}"
@@ -377,7 +383,25 @@ async def _training_completion_job(context: ContextTypes.DEFAULT_TYPE):
 
     bot = context.bot
 
-    # --- Play Animation (Omitted for brevity, assume success in logic) ---
+    # --- Play Animation ---
+    try:
+        frames = training.get('frames', [])
+        if frames:
+            total_anim_duration = max(3.0, training.get('duration_sec', 30) * 0.15)
+            duration_per_frame = max(config.ANIMATION_DELAY, total_anim_duration / len(frames))
+
+            for frame in frames:
+                try:
+                    await bot.edit_message_text(
+                        chat_id=chat_id, message_id=message_id,
+                        text=frame, parse_mode=ParseMode.MARKDOWN
+                    )
+                    await asyncio.sleep(duration_per_frame)
+                except Exception as edit_err:
+                    logger.warning(f"Failed to edit training message {message_id}: {edit_err}")
+                    break
+    except Exception as anim_e:
+        logger.error(f"Training animation failed for user {user_id}: {anim_e}", exc_info=True)
 
     # --- Grant Rewards ---
     try:
@@ -394,15 +418,14 @@ async def _training_completion_job(context: ContextTypes.DEFAULT_TYPE):
                  chakra_updated = False
                  if stat_to_gain == 'stamina':
                      player.max_hp = 100 + (player.stamina * 10)
+                     player.current_hp = min(player.max_hp, player.current_hp + 10)
                      player.mark_modified()
                      hp_updated = True
                  elif stat_to_gain == 'intelligence':
                      player.max_chakra = 100 + (player.intelligence * 5)
+                     player.current_chakra = min(player.max_chakra, player.current_chakra + 10)
                      player.mark_modified()
                      chakra_updated = True
-
-                 if hp_updated: player.current_hp = min(player.max_hp, player.current_hp + 5)
-                 if chakra_updated: player.current_chakra = min(player.max_chakra, player.current_chakra + 5)
 
             else:
                  logger.error(f"Invalid gain amount '{gain_amount}' for training '{train_type}'.")
@@ -412,6 +435,8 @@ async def _training_completion_job(context: ContextTypes.DEFAULT_TYPE):
         player.current_mission = None
         player.mark_modified()
         player.save()
+
+        logger.info(f"Training '{train_type}' completed by player {user_id}. Gained {gain_amount} {stat_to_gain}.")
 
     except Exception as reward_e:
          logger.error(f"Failed to grant rewards for training '{train_type}', user {user_id}: {reward_e}", exc_info=True)
