@@ -1,3 +1,4 @@
+# main.py
 import logging
 import asyncio
 from telegram.ext import Application
@@ -11,16 +12,14 @@ from naruto_bot.scheduler import setup_scheduler
 from naruto_bot.handlers import register_all_handlers
 
 # --- Logging Setup ---
-# Set up basic logging
 logging.basicConfig(
     level=logging.DEBUG if config.DEBUG else logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(), # Log to console
-        logging.FileHandler("naruto_bot.log") # Log to file
+        logging.StreamHandler(),
+        logging.FileHandler("naruto_bot.log")
     ]
 )
-# Suppress overly verbose logs from httpcore and httpx
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("telegram.ext").setLevel(logging.INFO)
@@ -54,7 +53,6 @@ async def main():
         logger.critical("BOT_TOKEN is not set. Exiting.")
         return
         
-    # Set default parse mode for all messages
     defaults = {"parse_mode": ParseMode.MARKDOWN}
     
     application = (
@@ -75,7 +73,6 @@ async def main():
     # --- 6. Run the Bot ---
     logger.info("Bot is starting to poll...")
     try:
-        # Run the bot
         await application.run_polling()
     except Exception as e:
         logger.critical(f"Bot polling failed: {e}")
@@ -83,7 +80,7 @@ async def main():
         # Graceful shutdown
         logger.info("Shutting down bot...")
         await application.shutdown()
-        cache_manager.close()
+        await cache_manager.close()  # FIX: Added await
         logger.info("Bot has been shut down.")
 
 if __name__ == "__main__":
