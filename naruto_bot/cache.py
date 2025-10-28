@@ -108,9 +108,12 @@ cache_manager = CacheManager()
 async def test_redis_connection() -> bool:
     """A standalone function to test the Redis connection on startup."""
     try:
-        client = redis.from_url(config.REDIS_URL)
+        # --- THIS IS THE FIX ---
+        # We get the *global* client, which initializes it.
+        client = await cache_manager._get_client()
+        # We ping it to make sure it works.
         await client.ping()
-        await client.aclose()
+        # We DO NOT close it, because the bot needs to use it.
         return True
     except Exception as e:
         logger.error(f"Redis connection test failed: {e}")
