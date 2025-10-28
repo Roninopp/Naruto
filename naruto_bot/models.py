@@ -342,8 +342,8 @@ class Player:
                      # Let's keep it True so the next save attempt happens.
                 else:
                      logger.info(f"Player {self.user_id} ({self.username}) data saved to database.")
-                     # Update cache after successful DB save using asyncio task
-                     asyncio.create_task(cache_manager.set_data("players", str(self.user_id), self, ttl=config.PLAYER_CACHE_TTL))
+                     # --- FIX: REMOVED CONFLICTING ASYNCIO CALL ---
+                     # asyncio.create_task(cache_manager.set_data("players", str(self.user_id), self, ttl=config.PLAYER_CACHE_TTL))
                      self._modified = False # Reset modified flag ONLY on successful save
 
         except sqlite3.Error as e:
@@ -520,9 +520,9 @@ def create_player(user_id: int, username: str, village: str) -> Optional[Player]
         # Load the newly created player using the synchronous helper
         new_player = Player._load_from_db(user_id)
         if new_player:
-             # Manually trigger caching (fire-and-forget task)
-             asyncio.create_task(cache_manager.set_data("players", str(user_id), new_player, ttl=config.PLAYER_CACHE_TTL))
-             logger.debug(f"Newly created player {user_id} cached.")
+             # --- FIX: REMOVED CONFLICTING ASYNCIO CALL ---
+             # asyncio.create_task(cache_manager.set_data("players", str(user_id), new_player, ttl=config.PLAYER_CACHE_TTL))
+             logger.debug(f"Newly created player {user_id} cache update removed.")
              return new_player
         else:
              # This indicates a problem with _load_from_db or immediate data inconsistency
@@ -535,7 +535,8 @@ def create_player(user_id: int, username: str, village: str) -> Optional[Player]
         existing_player = Player._load_from_db(user_id)
         if existing_player:
              logger.warning(f"Loaded existing player {user_id} instead of creating.")
-             asyncio.create_task(cache_manager.set_data("players", str(user_id), existing_player, ttl=config.PLAYER_CACHE_TTL))
+             # --- FIX: REMOVED CONFLICTING ASYNCIO CALL ---
+             # asyncio.create_task(cache_manager.set_data("players", str(user_id), existing_player, ttl=config.PLAYER_CACHE_TTL))
              return existing_player # Return existing player if creation failed due to conflict
         return None # Indicate failure
     except sqlite3.Error as e:
