@@ -322,7 +322,7 @@ class Player:
             self.username, self.village, self.level, self.exp, self.total_exp,
             self.max_hp, self.current_hp, self.max_chakra, self.current_chakra,
             self.chakra_regen_rate, self.strength, self.speed, self.intelligence, self.stamina,
-            json.dumps(self.known_jutsus or []),
+            json.dumps(self.known_jJutsus or []),
             json.dumps(self.discovered_combinations or []),
             json.dumps(self.equipment or {}),
             self.ryo, self.rank, self.wins, self.losses,
@@ -411,7 +411,7 @@ class Player:
             logger.error(f"Database error loading player {user_id}: {db_e}", exc_info=True)
             return None
         except Exception as e:
-             logger.error(f"Unexpected error loading player {user_id} from DB: {e}", exc_info=True)
+             logger.error(f"Unexpected error loading player {userid} from DB: {e}", exc_info=True)
              return None
 
 # --- Global Player Functions ---
@@ -437,7 +437,7 @@ async def get_player(user_id: int) -> Optional[Player]:
                  # asyncio.create_task(cached_player.regenerate_resources(save=False))
                  return cached_player
             else:
-                 logger.warning(f"Cache data for player {user_id} is invalid type: {type(cached_player)}. Deleting cache.")
+                 logger.warning(f"Cache data for player {userid} is invalid type: {type(cached_player)}. Deleting cache.")
                  await cache_manager.delete_data("players", cache_key)
                  # Fall through to load from DB
 
