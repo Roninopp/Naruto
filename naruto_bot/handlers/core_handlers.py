@@ -1,3 +1,4 @@
+# naruto_bot/handlers/core_handlers.py
 import logging
 import sqlite3
 import asyncio
@@ -10,8 +11,8 @@ from telegram.ext import (
     ConversationHandler
 )
 from telegram.constants import ParseMode
-from ..models import get_player, create_player, Player # get_player is async
-from ..game_data import VILLAGES # JUTSU_LIBRARY, RANKS removed unused imports
+from ..models import get_player, create_player, Player
+from ..game_data import VILLAGES
 from ..services import health_bar, chakra_bar
 
 logger = logging.getLogger(__name__)
@@ -35,13 +36,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     try:
         logger.debug(f"Attempting to get player data for {user.id}...")
-        # --- FIX: Added await ---
         player = await get_player(user.id)
         logger.debug(f"Player data for {user.id}: {'Found' if player else 'Not Found'}")
 
         if player:
             logger.debug(f"Existing player found ({player.username}). Sending welcome back message.")
-            # Ensure village key exists before accessing
             village_name = VILLAGES.get(player.village, {}).get('name', 'an unknown village')
             await context.bot.send_message(
                 chat_id=user.id,
@@ -112,7 +111,8 @@ async def village_selection_callback(update: Update, context: ContextTypes.DEFAU
     """Handles the village selection from the InlineKeyboard."""
     query = update.callback_query
     user = update.effective_user
-    if not query or not user: return
+    if not query or not user: 
+        return ConversationHandler.END
 
     logger.debug(f"Received village selection callback from {user.id}: {query.data}")
     await query.answer()
@@ -130,7 +130,6 @@ async def village_selection_callback(update: Update, context: ContextTypes.DEFAU
         return ConversationHandler.END
 
     # Check if player already exists BEFORE attempting creation
-    # --- FIX: Added await ---
     existing_player = await get_player(user.id)
     if existing_player:
          logger.warning(f"User {user.id} tried to select village '{village_key}' but already exists as {existing_player.username}.")
@@ -141,7 +140,7 @@ async def village_selection_callback(update: Update, context: ContextTypes.DEFAU
              await context.bot.send_message(user.id, "You are already registered! Use /profile.")
          return ConversationHandler.END
 
-    # Create the player (create_player is synchronous)
+    # Create the player
     username = user.username or f"Ninja-{user.id}"
     logger.info(f"Attempting to create player {user.id} ({username}) in village {village_key}.")
     try:
@@ -170,6 +169,7 @@ async def village_selection_callback(update: Update, context: ContextTypes.DEFAU
 
     return ConversationHandler.END
 
+
 async def cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels the registration conversation."""
     user = update.effective_user
@@ -178,13 +178,14 @@ async def cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("Registration cancelled. You can restart anytime with /start.")
     return ConversationHandler.END
 
+
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /profile command."""
     user = update.effective_user
-    if not user: return
+    if not user: 
+        return
 
     logger.debug(f"Received /profile command from {user.id}")
-    # --- FIX: Added await ---
     player = await get_player(user.id)
 
     if not player:
@@ -193,13 +194,11 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # Check instance type (safety check)
         if not isinstance(player, Player):
              logger.error(f"get_player returned non-Player object for {user.id}: {type(player)}")
              await update.message.reply_text("Error retrieving your profile data.")
              return
 
-        # Get village bonus safely
         bonus_elem, bonus_perc = player.get_village_bonus()
         bonus_text = f"+{int(bonus_perc * 100)}% {bonus_elem.capitalize()} Damage" if bonus_elem != 'none' else "No Bonus"
         exp_needed = player.get_exp_for_level(player.level)
@@ -235,23 +234,22 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Displays the help message with available commands."""
     user = update.effective_user
-    if not user: return
+    if not user: 
+        return
     logger.debug(f"Received /help command from {user.id}")
 
     help_text = (
-         "**📜 Available Commands 📜**\n\n"
+        "**📜 Available Commands 📜**\n\n"
         "**Core Gameplay:**\n"
         "`/start` - Start your ninja journey\n"
         "`/profile` - Check your stats and progress\n"
         "`/battle @username` - Challenge another player (reply to their msg)\n"
-        "`/train [type]` - Train stats (`taijutsu`, `chakra_control`, `stamina`)\n"
+        "`/train [type]` - Train stats (`taijutsu`, `chakra_control`, `stamina`, `speed`)\n"
         "`/missions` - View and start available missions\n\n"
-
         "**Jutsu System:**\n"
         "`/jutsus` - List your learned jutsus\n"
         "`/combine [signs]` - Try hand signs (e.g., `/combine tiger snake bird`)\n"
         "`/use [jutsu]` - Use a jutsu in battle (use keyboard)\n\n"
-
         "`/help` - Show this message"
     )
     try:
@@ -259,6 +257,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug(f"Help message sent to {user.id}")
     except Exception as e:
         logger.error(f"Failed to send help message to {user.id}: {e}", exc_info=True)
+
 
 def register_core_handlers(application: Application):
     logger.debug("Registering core handlers...")
