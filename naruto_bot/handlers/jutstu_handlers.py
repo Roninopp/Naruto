@@ -1,3 +1,4 @@
+# naruto_bot/handlers/jutsu_handlers.py  (RENAMED from jutstu_handlers.py)
 import logging
 import json
 import sqlite3
@@ -11,7 +12,7 @@ from ..models import get_player, Player
 from ..game_data import JUTSU_LIBRARY, HAND_SIGNS
 from ..services import validate_hand_signs, get_jutsu_by_signs
 from ..database import get_db_connection
-from ..animations import animate_jutsu_discovery # Ensure this function exists and works
+from ..animations import animate_jutsu_discovery
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,13 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id: return
     logger.debug(f"Received /jutsus command from {user_id}")
     
-    # --- FIX: Added await ---
     player = await get_player(user_id)
     if not player:
         await update.message.reply_text("You must /start your journey first.")
         return
 
     if not player.known_jutsus:
-        await update.message.reply_text("You don't know any jutsus yet! Try `/combine` to discover some.")
+        await update.message.reply_text("You don't know any jutsus yet! Try `/combine` to discover some.", parse_mode=ParseMode.MARKDOWN)
         return
 
     message = f"**Your Known Jutsus ({len(player.known_jutsus)}/25)**\n\n"
@@ -65,14 +65,12 @@ async def jutsus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handles the /combine command for jutsu discovery (Prompt 9).
-    """
-    user_id = update.effective_user.id
+    """Handles the /combine command for jutsu discovery."""
+    user_id = update.effective_user.id  # FIX: Changed from user.id
     if not user_id: return
     logger.debug(f"Received /combine command from {user_id} with args: {context.args}")
-    # --- FIX: Added await ---
-    player = await get_player(user.id)
+    
+    player = await get_player(user_id)  # FIX: Changed from user.id
     if not player:
         await update.message.reply_text("You must /start your journey first.")
         return
@@ -105,14 +103,14 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not jutsu_match:
         await update.message.reply_text(
             f"You perform the signs: `{combo_str}`...\n"
-            "But nothing happens. It seems this combination yields no technique."
+            "But nothing happens. It seems this combination yields no technique.",
+            parse_mode=ParseMode.MARKDOWN
         )
         logger.debug(f"Combination '{combo_str}' by {user_id} yielded no jutsu.")
         return
 
     jutsu_key, jutsu_data = jutsu_match
 
-    # Validate the retrieved jutsu data
     if not isinstance(jutsu_data, dict) or not all(k in jutsu_data for k in ['name', 'level_required', 'power', 'chakra_cost', 'element']):
          logger.error(f"JUTSU_LIBRARY data for key '{jutsu_key}' (from combo '{combo_str}') is incomplete or invalid.")
          await update.message.reply_text("An error occurred while retrieving data for this jutsu combination.")
@@ -125,7 +123,8 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"You perform the signs: `{combo_str}`...\n"
             "You feel a resonance, but your control isn't refined enough for this technique yet. "
-            f"(Requires Level {jutsu_data['level_required']})"
+            f"(Requires Level {jutsu_data['level_required']})",
+            parse_mode=ParseMode.MARKDOWN
         )
         logger.debug(f"Player {user_id} (Lvl {player.level}) failed level requirement for {jutsu_key} (Req Lvl {jutsu_data['level_required']})")
         return
@@ -134,7 +133,8 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if combo_str in player.discovered_combinations:
         await update.message.reply_text(
             f"You recognize this sequence: `{combo_str}`.\n"
-            f"It forms the **{jutsu_data['name']}** jutsu."
+            f"It forms the **{jutsu_data['name']}** jutsu.",
+            parse_mode=ParseMode.MARKDOWN
         )
         if player.add_jutsu(jutsu_key):
             player.save()
@@ -164,7 +164,7 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await animate_jutsu_discovery(message, player.username, anim_data)
 
     except Exception as e:
-        logger.error(f"Jutsu discovery animation failed for {user.id}: {e}", exc_info=True)
+        logger.error(f"Jutsu discovery animation failed for {user_id}: {e}", exc_info=True)  # FIX: Changed from user.id
         fallback_text = (
             f"🌟 **NEW JUTSU DISCOVERED!**\n"
             f"Through experimentation, you have learned **{jutsu_data.get('name', jutsu_key)}**!"
@@ -175,8 +175,8 @@ async def combine_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                  await update.message.reply_text(fallback_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as fallback_e:
-             logger.error(f"Failed to send fallback discovery message for {user.id}: {fallback_e}")
-             await context.bot.send_message(user.id, fallback_text, parse_mode=ParseMode.MARKDOWN)
+             logger.error(f"Failed to send fallback discovery message for {user_id}: {fallback_e}")  # FIX: Changed from user.id
+             await context.bot.send_message(user_id, fallback_text, parse_mode=ParseMode.MARKDOWN)  # FIX: Changed from user.id
 
 
 def _log_jutsu_discovery(combo_str: str, jutsu_key: str, player: Player):
