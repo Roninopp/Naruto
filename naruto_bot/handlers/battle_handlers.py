@@ -1,3 +1,4 @@
+# naruto_bot/handlers/battle_handlers.py
 import logging
 import uuid
 import asyncio
@@ -27,13 +28,12 @@ logger = logging.getLogger(__name__)
 # --- Battle Initiation ---
 
 async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Initiates a battle by replying to a user's message.
-    """
+    """Initiates a battle by replying to a user's message."""
     user_id = update.effective_user.id
-    if not user_id: return
+    if not user_id: 
+        return
     logger.debug(f"Received /battle command from {user_id}")
-    # --- FIX: Added await ---
+    
     challenger = await get_player(user_id)
     if not challenger:
         await update.message.reply_text("You must /start your journey first.")
@@ -49,7 +49,7 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are already in a battle!")
         return
 
-    # Check cooldown (method is synchronous)
+    # Check cooldown
     cooldown, remaining = challenger.is_on_cooldown('battle')
     if cooldown:
         await update.message.reply_text(f"You need rest after your last battle. Wait {remaining}.")
@@ -61,7 +61,7 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- Find Opponent ---
     if not update.message.reply_to_message or not update.message.reply_to_message.from_user:
-        await update.message.reply_text("To challenge someone, **reply** to one of their messages with `/battle`.")
+        await update.message.reply_text("To challenge someone, **reply** to one of their messages with `/battle`.", parse_mode=ParseMode.MARKDOWN)
         return
 
     opponent_user = update.message.reply_to_message.from_user
@@ -72,7 +72,6 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You cannot challenge bots (for now!).")
         return
 
-    # --- FIX: Added await ---
     opponent = await get_player(opponent_user.id)
     opponent_name = opponent_user.first_name or f"User {opponent_user.id}"
     if not opponent:
@@ -106,7 +105,7 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.debug(f"Battle object created with ID: {battle_id}")
 
-    # Set locks and cache mappings (await async calls)
+    # Set locks and cache mappings
     try:
         await cache_manager.set_battle_lock(challenger.user_id, opponent.user_id)
         await cache_manager.set_battle_lock(opponent.user_id, challenger.user_id)
@@ -123,16 +122,17 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- Send Initial Battle Message ---
     try:
         turn_player_id = battle.turn
-        # --- FIX: Added await ---
         turn_player_obj = await get_player(turn_player_id)
-        if not turn_player_obj: raise ValueError(f"Could not load player data for starting turn: {turn_player_id}")
+        if not turn_player_obj: 
+            raise ValueError(f"Could not load player data for starting turn: {turn_player_id}")
 
         logger.debug(f"First turn: {turn_player_obj.username}. Building keyboard.")
         keyboard = build_jutsu_keyboard(turn_player_obj)
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
         battle_text = battle.get_battle_state_text()
-        if not battle_text: raise ValueError("get_battle_state_text returned empty.")
+        if not battle_text: 
+            raise ValueError("get_battle_state_text returned empty.")
 
         logger.debug(f"Sending initial battle message for {battle_id} to chat {battle.chat_id}")
         message = await update.message.reply_text(
@@ -161,10 +161,10 @@ async def battle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles jutsu usage via /use command or ReplyKeyboard press."""
     user = update.effective_user
-    if not user: return
+    if not user: 
+        return
     logger.debug(f"Received /use handler trigger from {user.id}")
 
-    # --- FIX: Added await ---
     player = await get_player(user.id)
     if not player:
          await update.message.reply_text("Cannot find your player data.", reply_markup=ReplyKeyboardRemove())
@@ -177,7 +177,7 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Retrieve battle state
-    battle: Optional[Battle] = await cache_manager.get_data("battle_state", battle_id)
+    battle = await cache_manager.get_data("battle_state", battle_id)
     if not battle or not isinstance(battle, Battle):
         logger.warning(f"Battle state {battle_id} missing/invalid for player {user.id} using jutsu.")
         await _cleanup_battle_cache(battle_id, user.id, None)
@@ -201,10 +201,12 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
          return
 
     # Find the jutsu
-    jutsu_key, jutsu_data = get_jutsu_by_name(jutsu_name_input)
-    if not jutsu_key or not jutsu_data:
+    jutsu_result = get_jutsu_by_name(jutsu_name_input)
+    if not jutsu_result:
         await update.message.reply_text(f"Unknown jutsu: '{jutsu_name_input}'.")
         return
+    
+    jutsu_key, jutsu_data = jutsu_result
 
     # Check if known
     if jutsu_key not in player.known_jutsus:
@@ -226,7 +228,7 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
          logger.error(f"Opponent ID missing in cache for player {user.id}, battle {battle_id}.")
          await _end_battle(context, battle, "Internal error: Opponent missing.", winner_id=None)
          return
-    # --- FIX: Added await ---
+    
     opponent = await get_player(opponent_id)
     if not opponent:
          logger.error(f"Opponent player data (ID: {opponent_id}) missing for battle {battle_id}.")
@@ -247,8 +249,10 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             self.bot = bot
             self.chat_id = chat_id
             self.message_id = message_id
+        
         async def edit_text(self, text, parse_mode=ParseMode.MARKDOWN, reply_markup=None):
-            if not self.message_id: return
+            if not self.message_id: 
+                return
             try:
                 await self.bot.edit_message_text(
                     chat_id=self.chat_id, message_id=self.message_id,
@@ -280,7 +284,6 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Battle {battle_id} concluded. Winner: {winner_id}")
         await battle_message.edit_text(battle.get_battle_state_text(), parse_mode=ParseMode.MARKDOWN)
 
-        # --- FIX: Added await ---
         winner_player = await get_player(winner_id)
         winner_name = winner_player.username if winner_player else f"Player {winner_id}"
 
@@ -300,7 +303,6 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await cache_manager.set_data("battle_state", battle_id, battle, ttl=config.BATTLE_CACHE_TTL)
 
     # Get next player object for keyboard
-    # --- FIX: Added await ---
     next_player = await get_player(next_turn_player_id)
     if not next_player:
          logger.error(f"Could not load next player {next_turn_player_id} in battle {battle_id}.")
@@ -322,7 +324,8 @@ async def use_jutsu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def flee_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Allows a player to flee a battle."""
     user_id = update.effective_user.id
-    if not user_id: return
+    if not user_id: 
+        return
 
     battle_id = await cache_manager.get_data("user_battle_id", str(user_id))
     if not battle_id:
@@ -338,7 +341,6 @@ async def flee_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     winner_id = battle.player2_id if battle.player1_id == user_id else battle.player1_id
     fleeing_player_name = update.effective_user.first_name
 
-    # --- FIX: Added await ---
     winner_player = await get_player(winner_id)
     winner_name = winner_player.username if winner_player else f"Player {winner_id}"
 
@@ -354,12 +356,12 @@ async def flee_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     battle.log.append(f"{fleeing_player_name} fled.")
     await _end_battle(context, battle, f"{winner_name} won by default.", winner_id=winner_id)
-
-# --- Battle Cleanup and Logging (Minimal changes needed) ---
+    # --- Battle Cleanup and Logging ---
 
 async def _cleanup_battle_cache(battle_id: str, player1_id: Optional[int], player2_id: Optional[int]):
      """Removes battle state and user mappings from cache."""
-     if not battle_id: return
+     if not battle_id: 
+         return
      logger.debug(f"Cleaning up cache entries for battle {battle_id}")
      tasks = [cache_manager.delete_data("battle_state", battle_id)]
      if player1_id:
@@ -385,8 +387,10 @@ async def _end_battle(context: ContextTypes.DEFAULT_TYPE, battle: Battle, end_re
 
     logger.info(f"Ending battle {battle.battle_id}. Reason: '{end_reason}'. Winner: {winner_id}")
 
-    if winner_id == p1_id: loser_id = p2_id
-    elif winner_id == p2_id: loser_id = p1_id
+    if winner_id == p1_id: 
+        loser_id = p2_id
+    elif winner_id == p2_id:
+      loser_id = p1_id
 
     # Clean up cache FIRST
     await _cleanup_battle_cache(battle.battle_id, p1_id, p2_id)
@@ -394,9 +398,7 @@ async def _end_battle(context: ContextTypes.DEFAULT_TYPE, battle: Battle, end_re
     # Update Player Stats & Send DMs
     if winner_id and loser_id:
         try:
-            # --- FIX: Added await ---
             winner = await get_player(winner_id)
-            # --- FIX: Added await ---
             loser = await get_player(loser_id)
 
             if winner and loser:
@@ -453,7 +455,8 @@ async def _end_battle(context: ContextTypes.DEFAULT_TYPE, battle: Battle, end_re
             try:
                  await context.bot.send_message(p1_id, "An error occurred updating stats after the battle.", disable_notification=True)
                  await context.bot.send_message(p2_id, "An error occurred updating stats after the battle.", disable_notification=True)
-            except: pass
+            except: 
+                pass
 
     elif winner_id is None:
          logger.info(f"Battle {battle.battle_id} ended without a clear winner. Reason: {end_reason}.")
@@ -525,4 +528,4 @@ def register_battle_handlers(application: Application):
     application.add_handler(CommandHandler('battle', battle_command))
     application.add_handler(CommandHandler('use', use_jutsu_handler))
     application.add_handler(CommandHandler('flee', flee_command))
-    logger.debug("Battle handlers registered.")
+    logger.debug("Battle handlers registered.")  
