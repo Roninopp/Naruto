@@ -1,93 +1,52 @@
-# main.py
+# main.py (Simplified for Testing)
 import logging
 import asyncio
-# --- NEW LINES START ---
-policy = asyncio.get_event_loop_policy()
-policy.set_event_loop(policy.new_event_loop())
-# --- NEW LINES END ---
 from telegram.ext import Application
-from telegram.constants import ParseMode
+from telegram import Update
+from telegram.ext import CommandHandler, ContextTypes
+import os
+from dotenv import load_dotenv
 
-# --- Local Imports ---
-from naruto_bot.config import config
-from naruto_bot.database import init_database
-from naruto_bot.cache import cache_manager, test_redis_connection
-# from naruto_bot.scheduler import setup_scheduler  # <-- FIX: Commented out this import
-from naruto_bot.handlers import register_all_handlers
-
-# --- Logging Setup ---
+# --- Basic Logging ---
 logging.basicConfig(
-    level=logging.DEBUG if config.DEBUG else logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("naruto_bot.log")
-    ]
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("telegram.ext").setLevel(logging.INFO)
-
 logger = logging.getLogger(__name__)
 
+# --- Load Token Directly ---
+load_dotenv()
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+
+# --- Dummy Handler ---
+async def simple_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Simplified bot is running!")
+
 async def main():
-    """Main function to set up and run the bot."""
+    logger.info("--- Starting Simplified Bot Test ---")
 
-    logger.info("--- Starting Naruto RPG Bot ---")
-
-    # --- 1. Test Connections ---
-    logger.info(f"Database path set to: {config.DATABASE_PATH}")
-
-    # Test Redis connection
-    if not await test_redis_connection():
-        logger.critical("Failed to connect to Redis. Please check your REDIS_URL.")
-        return
-    logger.info(f"Successfully connected to Redis at {config.REDIS_URL}")
-
-    # --- 2. Initialize Database ---
-    try:
-        init_database()
-        logger.info("Database initialized successfully.")
-    except Exception as e:
-        logger.critical(f"Failed to initialize database: {e}")
-        return
-
-    # --- 3. Create Bot Application ---
-    if not config.BOT_TOKEN:
+    if not BOT_TOKEN:
         logger.critical("BOT_TOKEN is not set. Exiting.")
         return
 
-    defaults = {"parse_mode": ParseMode.MARKDOWN}
+    # --- Create Minimal Bot Application ---
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    application = (
-        Application.builder()
-        .token(config.BOT_TOKEN)
-        .defaults(defaults)
-        .build()
-    )
+    # --- Add ONLY a simple start handler ---
+    application.add_handler(CommandHandler('start', simple_start))
+    logger.info("Added simple /start handler.")
 
-    # --- 4. Register All Handlers ---
-    register_all_handlers(application)
-    logger.info("All command and message handlers registered.")
-
-    # --- 5. Start Scheduler ---
-    # setup_scheduler()  # <-- FIX: This was already commented out
-    # logger.info("Background scheduler started.") # <-- FIX: This was already commented out
-
-    # NOTE: The bot's built-in job_queue (used for missions/training)
-    # will still work. This fix only disables the separate 'apscheduler'.
-
-    # --- 6. Run the Bot ---
+    # --- Run the Bot ---
     logger.info("Bot is starting to poll...")
     try:
+        # Use run_polling directly
         await application.run_polling()
     except Exception as e:
-        logger.critical(f"Bot polling failed: {e}")
+        logger.critical(f"Bot polling failed: {e}", exc_info=True) # Add exc_info for more details
     finally:
         # Graceful shutdown
         logger.info("Shutting down bot...")
         await application.shutdown()
-        await cache_manager.close()
         logger.info("Bot has been shut down.")
 
 if __name__ == "__main__":
@@ -96,4 +55,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested (KeyboardInterrupt).")
     except Exception as e:
-        logger.critical(f"Unhandled exception in main: {e}")
+        logger.critical(f"Unhandled exception in main: {e}", exc_info=True) # Add exc_info
