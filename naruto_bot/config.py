@@ -18,8 +18,8 @@ class Config:
         raise ValueError("BOT_TOKEN not found. Please set it in your .env file.")
 
     # --- Database & Cache ---
-    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+    # FIX: Use REDIS_URL directly instead of constructing from HOST/PORT
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
     DATABASE_PATH = os.getenv('DATABASE_PATH', 'naruto_bot.db')
 
     # --- Admin & Debug ---
@@ -32,14 +32,14 @@ class Config:
 
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-    # --- Performance Config (from prompt 18) ---
+    # --- Performance Config ---
     MAX_CONCURRENT_BATTLES = int(os.getenv('MAX_CONCURRENT_BATTLES', 15))
     BATTLE_TIMEOUT_SECONDS = int(os.getenv('BATTLE_TIMEOUT_SECONDS', 300))
     ANIMATION_DELAY = float(os.getenv('ANIMATION_DELAY', 0.8))
-    PLAYER_CACHE_TTL = int(os.getenv('PLAYER_CACHE_TTL', 1800)) # 30 mins
-    BATTLE_CACHE_TTL = int(os.getenv('BATTLE_CACHE_TTL', 3600)) # 1 hour
-    CLEANUP_INTERVAL = int(os.getenv('CLEANUP_INTERVAL', 1800)) # 30 mins
+    PLAYER_CACHE_TTL = int(os.getenv('PLAYER_CACHE_TTL', 1800))
+    BATTLE_CACHE_TTL = int(os.getenv('BATTLE_CACHE_TTL', 3600))
+    CLEANUP_INTERVAL = int(os.getenv('CLEANUP_INTERVAL', 1800))
     DATABASE_BACKUP_HOURS = int(os.getenv('DATABASE_BACKUP_HOURS', 24))
 
-# Create a single config instance to be imported by other files
+# Create a single config instance
 config = Config()
