@@ -200,7 +200,9 @@ async def battle_animation_flow(message_editor, attacker: Player, defender: Play
         # Handle damage
         if is_crit:
             await animate_critical_hit(message_editor)
-defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
+        
+        # *** FIXED INDENTATION HERE ***
+        defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
         
         if is_elem_bonus:
             final_message += "🔥 **It's super effective!**\n"
@@ -223,4 +225,4 @@ defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
     elif attacker_data['current_hp'] <= 0:
         winner_id = defender.user_id
         
-    return winner_id, final_message    
+    return winner_id, final_message
