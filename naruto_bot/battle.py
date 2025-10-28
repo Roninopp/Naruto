@@ -18,7 +18,7 @@ from .animations import (
 
 logger = logging.getLogger(__name__)
 
-# --- Damage Calculation (Prompt 8) ---
+# --- Damage Calculation ---
 
 def calculate_damage(attacker: Player, defender: Player, jutsu_key: str) -> tuple[int, bool, bool, str]:
     """
@@ -30,25 +30,24 @@ def calculate_damage(attacker: Player, defender: Player, jutsu_key: str) -> tupl
         logger.error(f"Invalid jutsu_key '{jutsu_key}' passed to calculate_damage")
         return 0, False, False, ""
 
-    # 1. Base Damage (using Intelligence for Ninjutsu)
+    # 1. Base Damage
     base_damage = jutsu['power'] + (attacker.level * 2) + (attacker.intelligence * 1.5)
     
-    # 2. Village Bonus (Prompt 3)
+    # 2. Village Bonus
     attacker_village_bonus, bonus_percent = attacker.get_village_bonus()
     if attacker_village_bonus == jutsu['element']:
         base_damage *= (1 + bonus_percent)
         
-    # 3. Elemental Bonus (Prompt 7)
-    # Get defender's primary element from their village
+    # 3. Elemental Bonus
     defender_element = VILLAGES.get(defender.village, {}).get('element_bonus', 'none')
     element_bonus = ELEMENT_MATRIX[jutsu['element']][defender_element]
     
-    # 4. Critical Chance (Prompt 8, modified to use speed)
-    critical_chance = (attacker.speed / 500) + 0.05  # 5% base + speed bonus
+    # 4. Critical Chance
+    critical_chance = (attacker.speed / 500) + 0.05
     is_critical = random.random() < critical_chance
     critical_multiplier = 1.8 if is_critical else 1.0
     
-    # 5. Defense Reduction (using defender's Stamina)
+    # 5. Defense Reduction
     defense_reduction = 1 - (defender.stamina / (defender.stamina + 100))
     
     # 6. Final Damage
@@ -56,13 +55,12 @@ def calculate_damage(attacker: Player, defender: Player, jutsu_key: str) -> tupl
         (base_damage * element_bonus * critical_multiplier * defense_reduction)
     )
     
-    # 7. Handle non-damage "effects"
+    # 7. Handle effects
     effect_str = jutsu.get('effect')
     if effect_str:
         if effect_str == 'heal':
-            final_damage = -abs(jutsu['power']) # Negative damage signifies healing
+            final_damage = -abs(jutsu['power'])
         elif effect_str in ['evasion_up', 'defense_up', 'stun', 'accuracy_down']:
-            # These are handled by applying a battle effect, damage is 0
             final_damage = 0
         
     return final_damage, is_critical, element_bonus > 1.2, effect_str
@@ -70,10 +68,8 @@ def calculate_damage(attacker: Player, defender: Player, jutsu_key: str) -> tupl
 # --- Battle State Manager ---
 
 class Battle:
-    """
-    Manages the state of a single battle instance.
-    This object is cached in Redis.
-    """
+    """Manages the state of a single battle instance."""
+    
     def __init__(self, player1: Player, player2: Player, battle_id: str):
         self.battle_id = battle_id
         self.player1_id = player1.user_id
@@ -82,7 +78,6 @@ class Battle:
         self.log = [f"Battle started between {player1.username} and {player2.username}!"]
         self.turn_count = 1
         
-        # Store player data needed for the battle to reduce DB calls
         self.players = {
             player1.user_id: self._serialize_player(player1),
             player2.user_id: self._serialize_player(player2)
@@ -106,7 +101,7 @@ class Battle:
             'stamina': player.stamina,
             'village': player.village,
             'known_jutsus': player.known_jutsus,
-            'battle_effects': {} # e.g., {'defense_up': 2}
+            'battle_effects': {}
         }
 
     def get_player_data(self, user_id: int) -> dict:
@@ -120,9 +115,17 @@ class Battle:
         self.turn = self.player2_id if self.turn == self.player1_id else self.player1_id
         self.turn_count += 1
         self.last_action_time = datetime.now()
+    
+    # FIX: Added missing method
+    def update_player_resource(self, user_id: int, resource: str, value: int):
+        """Updates a player's resource (HP, chakra) in battle state."""
+        if user_id in self.players and resource in self.players[user_id]:
+            self.players[user_id][resource] = value
+        else:
+            logger.warning(f"Attempted to update invalid resource '{resource}' for user {user_id} in battle {self.battle_id}")
         
     def get_battle_state_text(self) -> str:
-        """Generates the main battle screen text (part of Prompt 5)."""
+        """Generates the main battle screen text."""
         p1 = self.get_player_data(self.player1_id)
         p2 = self.get_player_data(self.player2_id)
         
@@ -139,35 +142,44 @@ class Battle:
             f"🔵 {chakra_bar(p2['current_chakra'], p2['max_chakra'])}"
         )
 
-# --- Battle Animation Flow (Prompt 5) ---
+# --- Battle Animation Flow ---
 
-async def battle_animation_flow(message, attacker: Player, defender: Player, battle: Battle, jutsu_key: str):
+async def battle_animation_flow(message_editor, attacker: Player, defender: Player, battle_state: Battle, jutsu_key: str):
     """
     Manages the full animation sequence for a battle turn.
+    Returns: (winner_id, turn_log_message)
     """
     jutsu = JUTSU_LIBRARY.get(jutsu_key)
     
-    # Get player/opponent data *from the battle object*
-    attacker_data = battle.get_player_data(attacker.user_id)
-    defender_data = battle.get_opponent_data(attacker.user_id)
+    attacker_data = battle_state.get_player_data(attacker.user_id)
+    defender_data = battle_state.get_opponent_data(attacker.user_id)
     
-    # --- Step 1: Initial battle screen (Handled by the command) ---
-    # message.edit_text(...) is called before this function
+    # --- Step 2: Hand signs animation ---
+    await animate_hand_signs(message_editor, jutsu_key)
     
-    # --- Step 2: Hand signs animation (Prompt 6) ---
-    await animate_hand_signs(message, jutsu_key)
+    # --- Step 3: Jutsu charging animation ---
+    await animate_chakra_charge(message_editor)
     
-    # --- Step 3: Jutsu charging animation (Prompt 6) ---
-    await animate_chakra_charge(message)
+    # --- Step 4: Jutsu execution animation ---
+    await animate_jutsu_effect(message_editor, jutsu_key)
     
-    # --- Step 4: Jutsu execution animation (Prompt 12) ---
-    await animate_jutsu_effect(message, jutsu_key)
-    
-    # --- Step 5: Damage Calculation (Prompt 8) ---
+    # --- Step 5: Damage Calculation ---
     # Create temporary Player objects for calculation
-    # This is a bit of a hack, but safer than passing full objects
-    temp_attacker = Player(attacker_data) # Re-hydrating from dict
-    temp_defender = Player(defender_data) # Re-hydrating from dict
+    class TempPlayer:
+        def __init__(self, data):
+            self.user_id = attacker.user_id if data == attacker_data else defender.user_id
+            self.level = data['level']
+            self.intelligence = data['intelligence']
+            self.speed = data['speed']
+            self.stamina = data['stamina']
+            self.village = data['village']
+        
+        def get_village_bonus(self):
+            village_data = VILLAGES.get(self.village, {})
+            return village_data.get('element_bonus', 'none'), village_data.get('bonus_percent', 0)
+    
+    temp_attacker = TempPlayer(attacker_data)
+    temp_defender = TempPlayer(defender_data)
     
     damage, is_crit, is_elem_bonus, effect = calculate_damage(temp_attacker, temp_defender, jutsu_key)
 
@@ -180,24 +192,22 @@ async def battle_animation_flow(message, attacker: Player, defender: Player, bat
             attacker_data['current_hp'] = min(attacker_data['max_hp'], attacker_data['current_hp'] + heal_amount)
             final_message = f"✨ {attacker_data['username']} heals for {heal_amount} HP!"
         elif effect == 'defense_up':
-            attacker_data['battle_effects']['defense_up'] = 3 # Lasts 3 turns
+            attacker_data['battle_effects']['defense_up'] = 3
             final_message = f"🛡️ {attacker_data['username']}'s defense increased!"
-        # ... other effects
         else:
             final_message = f"🌀 {attacker_data['username']} used {jutsu['name']}!"
     else:
         # Handle damage
         if is_crit:
-            await animate_critical_hit(message)
-        
-        defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
+            await animate_critical_hit(message_editor)
+defender_data['current_hp'] = max(0, defender_data['current_hp'] - damage)
         
         if is_elem_bonus:
             final_message += "🔥 **It's super effective!**\n"
         
-        # --- Step 7: Damage result animation (Prompt 5) ---
+        # --- Step 7: Damage result animation ---
         await animate_damage_result(
-            message,
+            message_editor,
             attacker_data['username'],
             defender_data['username'],
             damage,
@@ -210,7 +220,7 @@ async def battle_animation_flow(message, attacker: Player, defender: Player, bat
     winner_id = None
     if defender_data['current_hp'] <= 0:
         winner_id = attacker.user_id
-    elif attacker_data['current_hp'] <= 0: # e.g., from a reflect damage
+    elif attacker_data['current_hp'] <= 0:
         winner_id = defender.user_id
         
-    return winner_id, final_message
+    return winner_id, final_message    
