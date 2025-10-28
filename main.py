@@ -1,6 +1,10 @@
 # main.py
 import logging
 import asyncio
+# --- NEW LINES START ---
+policy = asyncio.get_event_loop_policy()
+policy.set_event_loop(policy.new_event_loop())
+# --- NEW LINES END ---
 from telegram.ext import Application
 from telegram.constants import ParseMode
 
@@ -28,18 +32,18 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """Main function to set up and run the bot."""
-    
+
     logger.info("--- Starting Naruto RPG Bot ---")
 
     # --- 1. Test Connections ---
     logger.info(f"Database path set to: {config.DATABASE_PATH}")
-    
+
     # Test Redis connection
     if not await test_redis_connection():
         logger.critical("Failed to connect to Redis. Please check your REDIS_URL.")
         return
     logger.info(f"Successfully connected to Redis at {config.REDIS_URL}")
-    
+
     # --- 2. Initialize Database ---
     try:
         init_database()
@@ -52,9 +56,9 @@ async def main():
     if not config.BOT_TOKEN:
         logger.critical("BOT_TOKEN is not set. Exiting.")
         return
-        
+
     defaults = {"parse_mode": ParseMode.MARKDOWN}
-    
+
     application = (
         Application.builder()
         .token(config.BOT_TOKEN)
@@ -69,8 +73,8 @@ async def main():
     # --- 5. Start Scheduler ---
     # setup_scheduler()  # <-- FIX: This was already commented out
     # logger.info("Background scheduler started.") # <-- FIX: This was already commented out
-    
-    # NOTE: The bot's built-in job_queue (used for missions/training) 
+
+    # NOTE: The bot's built-in job_queue (used for missions/training)
     # will still work. This fix only disables the separate 'apscheduler'.
 
     # --- 6. Run the Bot ---
