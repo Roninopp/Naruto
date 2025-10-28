@@ -1,4 +1,4 @@
-# main.py (Simplified for Testing)
+# main.py (Simplified - Loop Management Test)
 import logging
 import asyncio
 from telegram.ext import Application
@@ -45,14 +45,34 @@ async def main():
         logger.critical(f"Bot polling failed: {e}", exc_info=True) # Add exc_info for more details
     finally:
         # Graceful shutdown
-        logger.info("Shutting down bot...")
-        await application.shutdown()
-        logger.info("Bot has been shut down.")
+        logger.info("Shutting down bot (in finally block)...")
+        # Ensure shutdown is awaited if run_polling raises exception early
+        if application.is_initialized:
+            await application.shutdown()
+        logger.info("Bot shutdown process complete.")
 
 if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
     try:
-        asyncio.run(main())
+        loop.run_until_complete(main())
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested (KeyboardInterrupt).")
+        # Ensure loop stops cleanly on Ctrl+C
+        loop.stop()
+    except RuntimeError as e:
+        if "Cannot close a running event loop" in str(e) or "This event loop is already running" in str(e):
+             logger.critical(f"Caught known event loop error: {e}. This likely indicates an environment conflict.")
+        else:
+             logger.critical(f"Caught unexpected runtime error: {e}", exc_info=True)
     except Exception as e:
-        logger.critical(f"Unhandled exception in main: {e}", exc_info=True) # Add exc_info
+        logger.critical(f"Unhandled exception in __main__: {e}", exc_info=True)
+    finally:
+        # Ensure the loop is closed if it's still running
+        if loop.is_running():
+            loop.stop() # Ensure it stops before closing
+        if not loop.is_closed():
+            logger.info("Closing event loop...")
+            # Wait briefly for tasks to finish cancellation if needed
+            # loop.run_until_complete(asyncio.sleep(0.1)) # Optional small delay
+            loop.close()
+            logger.info("Event loop closed.")
